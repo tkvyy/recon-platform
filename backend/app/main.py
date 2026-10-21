@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, SessionLocal, engine
 from app.models import ScanJob
@@ -8,6 +9,13 @@ from app.validators import is_valid_domain, normalize_domain
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Attack Surface Recon Platform")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ScanRequest(BaseModel):
