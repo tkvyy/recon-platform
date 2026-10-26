@@ -11,10 +11,31 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=_now)
+
+
+class AuthSession(Base):
+    """Server-side login session. Only a SHA-256 of the token is stored."""
+
+    __tablename__ = "auth_sessions"
+
+    token_hash = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=_now)
+    expires_at = Column(DateTime, nullable=False)
+
+
 class ScanJob(Base):
     __tablename__ = "scan_jobs"
 
     job_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     target_domain = Column(String, nullable=False)
     status = Column(String, default="QUEUED")  # QUEUED, RUNNING, COMPLETED, FAILED
     created_at = Column(DateTime, default=_now)

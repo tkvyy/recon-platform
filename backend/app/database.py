@@ -6,3 +6,12 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 Base = declarative_base()
+
+
+def get_db():
+    """FastAPI dependency: one DB session per request."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
