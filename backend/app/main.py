@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.database import Base, SessionLocal, engine
-from app.models import ScanJob
+from app.engine.diff import diff_scans
+from app.models import ScanJob, Subdomain
 from app.tasks import process_scan
 from app.validators import is_valid_domain, normalize_domain
 
@@ -20,6 +21,22 @@ app.add_middleware(
 )
 
 REUSE_WINDOW = timedelta(hours=24)
+
+
+def asset_to_dict(s: Subdomain) -> dict:
+    return {
+        "hostname": s.hostname,
+        "ip_address": s.ip_address,
+        "ips": s.ips or [],
+        "cname": s.cname or [],
+        "scheme": s.scheme,
+        "http_status": s.http_status,
+        "title": s.title,
+        "headers": s.headers or {},
+        "redirect_url": s.redirect_url,
+        "tech_stack": s.tech_stack or [],
+        "sources": s.sources or [],
+    }
 
 
 class ScanRequest(BaseModel):
@@ -119,15 +136,28 @@ def get_scan(job_id: str):
             "status": job.status,
             "error": job.error,
             "raw_count": job.raw_count,
-            "assets": [
-                {
-                    "hostname": s.hostname,
-                    "ip_address": s.ip_address,
-                    "http_status": s.http_status,
-                    "tech_stack": s.tech_stack,
-                }
-                for s in job.subdomains
-            ],
+            "assets": [asset_to_dict(a) for a in job.subdomains],
         }
+    finally:
+        db.close()
+
+
+@app.get("/scans/{old_id}/diff/{new_id}")
+def diff_endpoint(old_id: str, new_id: str):
+    """Compare two scans of the same target: added / removed / changed hosts."""
+    db = SessionLocal()
+    try:
+        old, new = db.get(ScanJob, old_id), db.get(ScanJob, new_id)
+        if old is None or new is None:
+            raise HTTPException(status_code=404, detail="Scan not found")
+        if old.target_domain != new.target_domain:
+            raise HTTPException(
+                status_code=422, detail="Scans must be for the same target"
+            )
+        result = diff_scans(
+            [asset_to_dict(a) for a in old.subdomains],
+            [asset_to_dict(a) for a in new.subdomains],
+        )
+        return {"old": old_id, "new": new_id, "target_domain": new.target_domain, **result}
     finally:
         db.close()

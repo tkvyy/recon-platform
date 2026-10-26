@@ -19,6 +19,8 @@ def process_scan(job_id: str) -> None:
         for asset in result["assets"]:
             db.add(Subdomain(job_id=job_id, **asset))
         job.raw_count = result["raw_count"]
+        # Non-fatal notes (e.g. CT lookup failed, wildcard DNS) are kept visible.
+        job.error = "; ".join(result.get("warnings", [])) or None
         job.status = "COMPLETED"
         job.completed_at = datetime.now(timezone.utc)
         db.commit()
