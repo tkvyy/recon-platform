@@ -6,48 +6,31 @@ A web platform that finds the subdomains of a domain, checks which ones answer o
 
 ## Demo video
 
-[***Demo**](docs/video/demo.mp4)
-
-What the demo shows: register and log in, start a scan, watch the sonar map fill in, filter and expand hosts, rescan and read the Changes tab, stop a scan, and run the isolation tests.
+[**Recon Platform Demo Video**](docs/video/demo.mp4)
 
 ## Screenshots
 
 ### 1. Login and register
 ![Login page](docs/screenshots/01-login.png)
 
-*The entry screen. Every scan belongs to one account.*
-
-### 2. Dashboard and sonar map
+### 2. Dashboard
 ![Dashboard with sonar map](docs/screenshots/02-dashboard.png)
-
-*A finished scan: the sonar map (dots are hosts, rings are subdomain depth, colors are HTTP status), the stat strip, and scan history in the sidebar. Use a scan with at least 10 hosts so the map is not empty.*
 
 ### 3. Scan in progress
 ![Scan running](docs/screenshots/03-scanning.png)
 
-*The sweep animates while a scan runs, with the Stop scan button visible.*
-
 ### 4. Hosts table with a row expanded
 ![Hosts table](docs/screenshots/04-hosts-table.png)
-
-*Search, filter chips, sortable columns, and one expanded row showing IPs, CNAME, response headers and missing security headers.*
 
 ### 5. Changes between two scans
 ![Changes tab](docs/screenshots/05-changes.png)
 
-*Added, gone and changed hosts compared with the previous scan, with old and new values side by side.*
-
 ### 6. Data isolation tests
 ![Isolation tests passing](docs/screenshots/06-isolation-tests.png)
-
-*Terminal output of `python -m pytest tests/test_isolation.py -v`, showing that one user cannot read, list, compare, stop or delete another user's scans.*
 
 ### 7. Full test suite
 ![All tests passing](docs/screenshots/07-all-tests.png)
 
-*Terminal output of `python -m pytest -q` with every test passing.*
-
-*Taken from the design document: UI, API, queue, worker, engine and database.*
 
 ## Features
 
