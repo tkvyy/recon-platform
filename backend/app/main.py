@@ -204,6 +204,23 @@ def get_scan(
     }
 
 
+@app.post("/scans/{job_id}/cancel")
+def cancel_scan(
+    job_id: str,
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stop a scan that is waiting or running. The worker notices within seconds."""
+    job = get_owned_scan(db, job_id, user)
+    if job.status not in ("QUEUED", "RUNNING"):
+        raise HTTPException(status_code=409, detail="This scan has already finished")
+    job.status = "CANCELLED"
+    job.error = None
+    job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    return {"job_id": job.job_id, "status": job.status}
+
+
 @app.delete("/scans/{job_id}", status_code=204)
 def delete_scan(
     job_id: str,

@@ -72,7 +72,7 @@ def test_ct_names_survive_wildcard_filter():
 def test_ct_failure_is_a_warning_not_a_crash():
     res = run({"example.com": A, "www.example.com": A}, ct=RuntimeError("crt.sh down"))
     assert {a["hostname"] for a in res["assets"]} == {"example.com", "www.example.com"}
-    assert any("Certificate transparency" in w for w in res["warnings"])
+    assert any("Certificate transparency" in w and "RuntimeError" in w for w in res["warnings"])
 
 
 def test_bruteforce_can_be_disabled():

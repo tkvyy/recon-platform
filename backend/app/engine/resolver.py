@@ -54,13 +54,21 @@ async def detect_wildcard(domain: str, lookup: Lookup, probes: int = 3) -> set[s
 
 
 async def resolve_many(
-    names: set[str] | list[str], lookup: Lookup, concurrency: int = 50
+    names: set[str] | list[str],
+    lookup: Lookup,
+    concurrency: int = 50,
+    cancel: asyncio.Event | None = None,
 ) -> dict[str, dict]:
-    """Resolve many names concurrently; return only those that resolve."""
+    """Resolve many names concurrently; return only those that resolve.
+
+    If `cancel` is set, names not yet started are skipped.
+    """
     sem = asyncio.Semaphore(concurrency)
 
     async def one(name: str):
         async with sem:
+            if cancel is not None and cancel.is_set():
+                return name, None
             try:
                 return name, await lookup(name)
             except Exception:  # a single bad lookup must not sink the scan (NFR4)

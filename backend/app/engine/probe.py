@@ -58,13 +58,22 @@ async def probe_host(client: httpx.AsyncClient, host: str, timeout: float = 8.0)
 
 
 async def probe_many(
-    hosts: list[str], client: httpx.AsyncClient, concurrency: int = 20, timeout: float = 8.0
+    hosts: list[str],
+    client: httpx.AsyncClient,
+    concurrency: int = 20,
+    timeout: float = 8.0,
+    cancel: asyncio.Event | None = None,
 ) -> dict[str, dict]:
-    """Probe hosts concurrently; return only those that answered over HTTP(S)."""
+    """Probe hosts concurrently; return only those that answered over HTTP(S).
+
+    If `cancel` is set, hosts not yet started are skipped.
+    """
     sem = asyncio.Semaphore(concurrency)
 
     async def one(host: str):
         async with sem:
+            if cancel is not None and cancel.is_set():
+                return host, None
             try:
                 return host, await probe_host(client, host, timeout)
             except Exception:  # NFR4: one failure must not abort the scan

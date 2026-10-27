@@ -1,4 +1,5 @@
 """The built-in recon pipeline: discover -> resolve -> filter -> probe."""
+import asyncio
 import logging
 from typing import Awaitable, Callable
 
@@ -11,6 +12,11 @@ log = logging.getLogger(__name__)
 USER_AGENT = "ReconPlatform/0.1 (authorized security assessment)"
 
 CTFetch = Callable[[str, httpx.AsyncClient], Awaitable[set[str]]]
+CANCEL_POLL_SECONDS = 1.0
+
+
+class ScanCancelled(Exception):
+    """Raised when the user stops a scan."""
 
 
 async def scan_domain(
@@ -20,11 +26,14 @@ async def scan_domain(
     client: httpx.AsyncClient | None = None,
     wordlist: list[str] | None = None,
     ct_fetch: CTFetch | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> dict:
     """Run a full scan of `domain` with the built-in engine.
 
     Dependencies (lookup, client, wordlist, ct_fetch) are injectable so the
     pipeline can be unit tested without a network (NFR5, NFR6).
+    `should_cancel` is polled about once a second; when it returns True the scan
+    stops starting new work and raises ScanCancelled.
     Returns {"domain", "raw_count", "assets", "warnings"}.
     """
     config = config or ScanConfig()
@@ -36,14 +45,34 @@ async def scan_domain(
     ct_fetch = ct_fetch or discovery.fetch_ct
     warnings: list[str] = []
 
+    cancel = asyncio.Event()
+    watcher: asyncio.Task | None = None
+
+    async def watch() -> None:
+        while not cancel.is_set():
+            if await asyncio.to_thread(should_cancel):  # type: ignore[arg-type]
+                cancel.set()
+                return
+            await asyncio.sleep(CANCEL_POLL_SECONDS)
+
+    def checkpoint() -> None:
+        if cancel.is_set():
+            raise ScanCancelled("Scan stopped")
+
+    if should_cancel is not None:
+        watcher = asyncio.create_task(watch())
+
     try:
+        checkpoint()
         # 1. Discovery -------------------------------------------------------
         ct_hosts: set[str] = set()
         if config.use_ct:
             try:
                 ct_hosts = await ct_fetch(domain, client)
             except Exception as exc:  # CT is a source, not a requirement (NFR4)
-                warnings.append(f"Certificate transparency lookup failed: {exc}")
+                warnings.append(
+                    f"Certificate transparency lookup failed ({discovery.describe_error(exc)})"
+                )
 
         brute_hosts: set[str] = set()
         if config.use_bruteforce:
@@ -52,12 +81,14 @@ async def scan_domain(
             )
             brute_hosts = discovery.brute_candidates(domain, words[: config.max_wordlist])
 
+        checkpoint()
         candidates = ct_hosts | brute_hosts | {domain}
 
         # 2. Resolve (FR4, FR6) ---------------------------------------------
         resolved = await resolver.resolve_many(
-            candidates, lookup, config.dns_concurrency
+            candidates, lookup, config.dns_concurrency, cancel
         )
+        checkpoint()
 
         # 3. Wildcard filtering (FR5): brute-forced names that only resolve to
         #    wildcard IPs are false positives. CT names are real certificates,
@@ -80,10 +111,14 @@ async def scan_domain(
         }
 
         # 4. Probe (FR7) ------------------------------------------------------
+        checkpoint()
         probed = await probe.probe_many(
-            sorted(hosts), client, config.http_concurrency, config.http_timeout
+            sorted(hosts), client, config.http_concurrency, config.http_timeout, cancel
         )
+        checkpoint()
     finally:
+        if watcher is not None:
+            watcher.cancel()
         if own_client:
             await client.aclose()
 

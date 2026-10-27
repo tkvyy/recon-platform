@@ -1,11 +1,68 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-sea: #0a2431;
+  --color-trench: #0f3042;
+  --color-trench-2: #143b50;
+  --color-reef: #23566c;
+  --color-foam: #e8f6f3;
+  --color-mist: #8fb3bc;
+  --color-sonar: #3fd8e0;
+  --color-kelp: #5be3a3;
+  --color-flare: #ffb84d;
+  --color-coral: #ff6b7a;
+  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
-  background: #f9fafb;
-  color: #111827;
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-sea);
+  color: var(--color-foam);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-sonar);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-sonar) 35%, transparent);
+}
+
+/* Sonar sweep: only runs while a scan is in progress. */
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sonar-sweep {
+  transform-origin: 180px 180px;
+  animation: sweep 3.2s linear infinite;
+}
+
+/* New hosts ping a few times, then settle. */
+@keyframes ping {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(3.4);
+    opacity: 0;
+  }
+}
+.sonar-ping {
+  animation: ping 1.8s ease-out 4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sonar-sweep,
+  .sonar-ping {
+    animation: none;
+  }
 }

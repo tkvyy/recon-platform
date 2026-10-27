@@ -1,6 +1,7 @@
 import asyncio
 
 import httpx
+import pytest
 
 from app.engine import discovery
 
@@ -27,27 +28,73 @@ def test_in_scope_rejects_lookalike_domains():
     assert not discovery.in_scope("badexample.com", "example.com")
 
 
-def test_fetch_ct_parses_response():
+def run_ct(handler):
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            return await discovery.fetch_ct("example.com", c, backoff=0)
+
+    return asyncio.run(go())
+
+
+def test_fetch_ct_parses_crtsh_response():
     def handler(request):
+        assert request.url.host == "crt.sh"
         assert request.url.params["output"] == "json"
         return httpx.Response(200, json=[{"name_value": "api.example.com"}])
 
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
-            return await discovery.fetch_ct("example.com", c)
-
-    assert asyncio.run(run()) == {"api.example.com"}
+    assert run_ct(handler) == {"api.example.com"}
 
 
-def test_fetch_ct_html_error_page_returns_empty():
+def test_fetch_ct_retries_a_transient_failure():
+    calls = []
+
     def handler(request):
-        return httpx.Response(200, text="<html>busy</html>")
+        calls.append(request.url.host)
+        if len(calls) == 1:
+            return httpx.Response(404)
+        return httpx.Response(200, json=[{"name_value": "api.example.com"}])
 
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
-            return await discovery.fetch_ct("example.com", c)
+    assert run_ct(handler) == {"api.example.com"}
+    assert calls == ["crt.sh", "crt.sh"]  # retried crt.sh, no fallback needed
 
-    assert asyncio.run(run()) == set()
+
+def test_fetch_ct_falls_back_to_certspotter():
+    def handler(request):
+        if request.url.host == "crt.sh":
+            return httpx.Response(404)
+        assert request.url.params["include_subdomains"] == "true"
+        return httpx.Response(
+            200, json=[{"dns_names": ["shop.example.com", "*.example.com", "evil.com"]}]
+        )
+
+    assert run_ct(handler) == {"shop.example.com"}
+
+
+def test_fetch_ct_html_error_page_counts_as_failure_and_falls_back():
+    def handler(request):
+        if request.url.host == "crt.sh":
+            return httpx.Response(200, text="<html>busy</html>")
+        return httpx.Response(200, json=[{"dns_names": ["a.example.com"]}])
+
+    assert run_ct(handler) == {"a.example.com"}
+
+
+def test_fetch_ct_raises_with_both_reasons_when_everything_fails():
+    def handler(request):
+        if request.url.host == "crt.sh":
+            return httpx.Response(404)
+        raise httpx.ReadTimeout("")  # empty message, like the real thing
+
+    with pytest.raises(discovery.CTUnavailable) as exc:
+        run_ct(handler)
+    msg = str(exc.value)
+    assert "crt.sh: HTTP 404" in msg
+    assert "Cert Spotter: ReadTimeout" in msg
+
+
+def test_parse_certspotter_scopes_and_cleans():
+    rows = [{"dns_names": ["A.example.com", "*.example.com", "x.other.com", "bad name.example.com"]}]
+    assert discovery.parse_certspotter(rows, "example.com") == {"a.example.com"}
 
 
 def test_load_wordlist_dedups_validates_and_caps(tmp_path):

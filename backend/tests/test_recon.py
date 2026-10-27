@@ -11,7 +11,7 @@ def test_run_recon_rejects_invalid_domain():
 def test_run_recon_normalises_and_delegates(monkeypatch):
     seen = {}
 
-    async def fake_scan(domain, config=None):
+    async def fake_scan(domain, config=None, **kwargs):
         seen["domain"] = domain
         return {"domain": domain, "raw_count": 0, "assets": [], "warnings": []}
 
