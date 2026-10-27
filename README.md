@@ -1,30 +1,16 @@
-# Attack Surface Recon
+# Recon Platform
 
 A web platform that finds the subdomains of a domain, checks which ones answer on the web, saves every scan to your account, and shows you what changed since the last one. The discovery and probing engine is written from scratch in Python. No external recon tools are required.
 
 **Use only on domains you own or are explicitly authorized to test.**
 
-<!-- DEMO VIDEO: replace the link below. Upload to YouTube (unlisted) or Google Drive and paste the URL. -->
-
 ## Demo video
 
-[**Watch the demo (about 2 minutes)**](ADD-VIDEO-LINK-HERE)
-
-<!-- Optional: add a short GIF of the sonar map here so the page moves.
-![Demo GIF](docs/screenshots/demo.gif) -->
+[***Demo**](docs/video/demo.mp4)
 
 What the demo shows: register and log in, start a scan, watch the sonar map fill in, filter and expand hosts, rescan and read the Changes tab, stop a scan, and run the isolation tests.
 
 ## Screenshots
-
-<!--
-CAPTURE TIPS
-- Scan a domain you own for the public README (not a third party's).
-- To get a non-empty Changes tab: scan once, add a DNS record such as demo.yourdomain.com
-  (it is in the built-in wordlist), then scan again. It will show up as "new".
-- Use a wide browser window (about 1400px) and crop out the address bar.
-- Save files in docs/screenshots/ with the exact names below.
--->
 
 ### 1. Login and register
 ![Login page](docs/screenshots/01-login.png)
@@ -61,9 +47,6 @@ CAPTURE TIPS
 
 *Terminal output of `python -m pytest -q` with every test passing.*
 
-### 8. Architecture diagram
-![Architecture diagram](docs/screenshots/08-architecture.png)
-
 *Taken from the design document: UI, API, queue, worker, engine and database.*
 
 ## Features
@@ -83,7 +66,7 @@ Next.js UI  ->  FastAPI  ->  Redis queue  ->  Celery worker  ->  Engine  ->  SQL
                                           discover -> resolve -> filter wildcards -> probe
 ```
 
-The engine lives in `backend/app/engine/`. Subfinder and HTTPx are not needed. Optional adapters for them exist in `backend/app/adapters/` and are only used to benchmark the built-in engine.
+The engine lives in `backend/app/engine/`
 
 ## Security design
 
@@ -95,7 +78,7 @@ The engine lives in `backend/app/engine/`. Subfinder and HTTPx are not needed. O
 
 ## Requirements
 
-Python 3.11+, Node.js 20+, Redis
+Python 3.11+, Node.js 20+, Redis, Celery
 
 ## Setup
 
@@ -138,7 +121,6 @@ The suite covers the discovery, resolver, prober, pipeline and diff logic, authe
 - The login token is kept in browser storage. An httpOnly cookie would be more secure for production.
 - The permission checkbox is enforced in the interface only, not by the server.
 - Certificate transparency sources are public services and can be slow, rate limited or unavailable. A failed source shows as a warning on the scan instead of failing it.
-- Not built yet: scheduled rescans, subdomain takeover checks, and risk scoring.
 
 ## Project structure
 
