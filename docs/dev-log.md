@@ -13,8 +13,6 @@
 
 ## 2026-10-22 (Thu)
 - Built: scan history endpoint and reuse of recent scans (within 24 hours)
-
-## [CONFIRM DATE: the Friday of the lecturer's reply]
 - Asked the lecturer whether the problem and solution were suitable. Reply: "Implement something within and follow the SE process."
 - Understood it as: the core engine must be my own code instead of a wrapper around Subfinder and HTTPx, and the project needs documented SE phases.
 - Decided to rebuild the engine, add user accounts with per-user scan history, and add scan comparison.
