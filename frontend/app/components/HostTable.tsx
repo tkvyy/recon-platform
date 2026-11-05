@@ -121,6 +121,7 @@ export default function HostTable({
 
       <p className="mt-3 text-sm text-mist" aria-live="polite">
         Showing {rows.length} of {assets.length} hosts
+        <span className="ml-2 text-mist/70">· Click a row to see details</span>
       </p>
 
       <div className="mt-2 overflow-x-auto rounded-xl border border-reef">
@@ -158,15 +159,23 @@ export default function HostTable({
                   <tr
                     onClick={() => onActive(open ? null : a.hostname)}
                     className={`cursor-pointer border-t border-reef/60 ${
-                      open ? "bg-trench-2" : "hover:bg-trench/70"
+                      open ? "bg-trench-2" : "hover:bg-trench"
                     }`}
                   >
                     <td className="px-3 py-2.5">
                       <button
                         aria-expanded={open}
-                        className="text-left font-mono text-foam"
+                        className="inline-flex items-center gap-2 text-left font-mono text-foam"
                         onClick={(e) => { e.stopPropagation(); onActive(open ? null : a.hostname); }}
                       >
+                        <span
+                          aria-hidden="true"
+                          className={`inline-block text-xs transition-transform duration-150 ${
+                            open ? "rotate-90 text-sonar" : "text-mist"
+                          }`}
+                        >
+                          ▸
+                        </span>
                         {a.hostname}
                       </button>
                       {newHosts.has(a.hostname) && (
