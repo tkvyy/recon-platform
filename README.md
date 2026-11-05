@@ -61,41 +61,107 @@ The engine lives in `backend/app/engine/`
 
 ## Requirements
 
-Python 3.11+, Node.js 20+, Redis, Celery
+| Tool | Version | Check with |
+|------|---------|------------|
+| Python | 3.11 or newer | `python3 --version` |
+| Node.js | 20 or newer | `node -v` |
+| Redis | any recent version | `redis-server --version` |
 
-## Setup
+Tested on Ubuntu under WSL2 (Windows). Native Linux works the same way. On macOS, replace the Redis commands with `brew install redis` and `brew services start redis`.
+
+Install the system packages on Ubuntu/WSL:
 
 ```bash
-# Backend
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip redis-server
+```
+
+## Setup (one time)
+
+```bash
+# 1. Get the code
+git clone https://github.com/tkvyy/recon-platform.git
+cd recon-platform
+
+# 2. Backend: create the virtual environment and install dependencies
 cd backend
-python3 -m venv venv && source venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+deactivate
+cd ..
 
-# Frontend
-cd ../frontend && npm install
+# 3. Frontend: install dependencies
+cd frontend
+npm install
+cd ..
 ```
 
-## Run (four terminals)
+No configuration file is needed. The SQLite database (`backend/recon.db`) is created automatically on first run.
+
+## Run
+
+The platform has four parts that run at the same time, so open **four terminal windows**. Start them in this order.
+
+**Terminal 1: Redis (job queue)**
 
 ```bash
-sudo service redis-server start                                   # 1. Redis
-cd backend && source venv/bin/activate
-celery -A app.celery_app worker --loglevel=info                   # 2. Worker
-cd backend && source venv/bin/activate
-uvicorn app.main:app --reload                                     # 3. API (port 8000)
-cd frontend && npm run dev                                        # 4. UI (port 3000)
+sudo service redis-server start
+redis-cli ping        # should print PONG
 ```
 
-Open http://localhost:3000, create an account, enter a domain you own, tick the permission box and start a scan. API docs are at http://localhost:8000/docs.
+**Terminal 2: Worker (runs the scans)**
 
-Restart the worker after changing backend code, since it does not reload by itself. The SQLite database (`backend/recon.db`) is created automatically. Delete it to reset all data.
+```bash
+cd recon-platform/backend
+source venv/bin/activate
+celery -A app.celery_app worker --loglevel=info
+```
+
+**Terminal 3: API**
+
+```bash
+cd recon-platform/backend
+source venv/bin/activate
+uvicorn app.main:app --reload
+```
+
+**Terminal 4: Web interface**
+
+```bash
+cd recon-platform/frontend
+npm run dev
+```
+
+Then open **http://localhost:3000**, create an account, enter a domain you own, tick the permission box and start a scan.
+
+| Address | What it is |
+|---------|------------|
+| http://localhost:3000 | Web interface |
+| http://localhost:8000/docs | Interactive API documentation |
+
+To stop everything, press `Ctrl+C` in each terminal. To reset all data, stop the API and worker and delete `backend/recon.db`.
+
+## Troubleshooting
+
+| Problem | Likely cause and fix |
+|---------|----------------------|
+| A scan stays "queued" and never starts | The worker is not running. Start Terminal 2 and check that it prints "ready". |
+| Error mentioning Redis or "connection refused" | Redis is not running. Run `sudo service redis-server start`, then `redis-cli ping`. |
+| The page loads but login or scans fail | The API is not running. Start Terminal 3 and check http://localhost:8000/docs opens. |
+| `command not found: celery` or `uvicorn` | The virtual environment is not active. Run `source venv/bin/activate` in that terminal first. |
+| `Address already in use` | Another program is using port 3000 or 8000. Close it, or stop the old copy of the platform. |
+| Backend changes do not take effect | The worker does not reload by itself. Stop it and start it again. |
+| A scan shows a warning about a certificate source | The public lookup service (crt.sh or Cert Spotter) was slow or unavailable. The scan still completes with the other sources. |
 
 ## Tests
 
 ```bash
 cd backend
+source venv/bin/activate
 python -m pytest -q
 ```
+
 
 The suite covers the discovery, resolver, prober, pipeline and diff logic, authentication, scan cancellation, and per-user data isolation.
 
